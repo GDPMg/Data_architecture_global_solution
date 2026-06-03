@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
-BASE_URL = "https://api.open-meteo.com/v1"
+BASE_URL_FORECAST = "https://api.open-meteo.com/v1"
+BASE_URL_ARCHIVE = "https://archive-api.open-meteo.com/v1"
 
 # Regiões agrícolas pré-definidas (lat, lon, nome)
 REGIOES_AGRICOLAS = {
@@ -93,6 +94,7 @@ class OpenMeteoClient:
             params["hourly"] = ",".join(variaveis_hourly)
 
         return self._fazer_requisicao(
+            base_url=BASE_URL_ARCHIVE,
             endpoint="/archive",
             params=params,
             regiao_nome=regiao["nome"],
@@ -137,6 +139,7 @@ class OpenMeteoClient:
             params["hourly"] = ",".join(variaveis_hourly)
 
         return self._fazer_requisicao(
+            base_url=BASE_URL_FORECAST,
             endpoint="/forecast",
             params=params,
             regiao_nome=regiao["nome"],
@@ -153,12 +156,13 @@ class OpenMeteoClient:
 
     def _fazer_requisicao(
         self,
+        base_url: str,
         endpoint: str,
         params: dict,
         regiao_nome: str,
     ) -> dict:
         """Executa a requisição HTTP, trata erros e retorna o JSON."""
-        url = BASE_URL + endpoint
+        url = base_url + endpoint
 
         logger.info(
             f"[OpenMeteo] Requisição → {endpoint} | região: {regiao_nome} | "
