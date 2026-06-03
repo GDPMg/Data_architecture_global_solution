@@ -1,0 +1,85 @@
+version: '3.8'
+
+# Configurações comuns a todos os serviços Airflow
+x-airflow-common: &airflow-common
+  build: .
+  environment:
+    # Banco de metadados do Airflow (PostgreSQL interno)
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+
+    # Localização das DAGs e Python path do projeto
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/project/dags
+    PYTHONPATH: /opt/airflow/project
+
+    # Conexão Oracle — host.docker.internal aponta para o host Windows
+    # onde o Oracle XE está rodando
+    ORACLE_DSN: host.docker.internal:1521/XE
+    ORACLE_USER: system
+    ORACLE_PASSWORD: "123"
+
+  volumes:
+    # Monta todo o projeto dentro do container
+    - .:/opt/airflow/project
+    # Logs do Airflow persistidos fora do container
+    - airflow-logs:/opt/airflow/logs
+
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+
+  # ── Banco de metadados do Airflow ─────────────────────────────────────────
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+
+  # ── Inicialização do banco + criação do usuário admin ─────────────────────
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db init
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname Admin \
+          --role Admin \
+          --email admin@example.com
+    restart: "no"
+
+  # ── Webserver (UI em http://localhost:8080) ───────────────────────────────
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      retries: 5
+
+  # ── Scheduler (executa as DAGs conforme schedule) ────────────────────────
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+
+volumes:
+  postgres-db:
+  airflow-logs:

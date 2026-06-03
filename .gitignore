@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Airflow
+logs/
+airflow.db
+airflow.cfg
+standalone_admin_password.txt
+webserver_config.py
+
+# Staging files (dados temporários gerados pelas DAGs)
+data/
+
+# Docker
+.env
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
