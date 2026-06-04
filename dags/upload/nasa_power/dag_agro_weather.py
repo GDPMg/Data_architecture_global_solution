@@ -1,18 +1,11 @@
 """
 dags/upload/nasa_power/dag_agro_weather.py
 ------------------------------------------
-DAG que extrai dados agrometeorológicos da NASA POWER e os carrega
-na tabela AGRO_WEATHER do Oracle XE.
-
-Fluxo:
-    extrair_transformar_task >> carregar_oracle_task >> limpar_staging_task
-
-Staging intermediário: data/nasa_power/agro_weather/staging_{ds}.json
-Acionado exclusivamente pelo trigger_master (schedule_interval=None).
+Pipeline: NASA POWER → staging JSON → AGRO_WEATHER (Oracle)
+Acionado pelo trigger_master. Lógica das tasks em utils/dag_factory.py.
 """
 
 import sys
-import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -23,45 +16,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from ingestion.nasa_power.agro_weather.agro_weather import extrair_todas_regioes
-from loader.oracle_loader import OracleLoader
-from utils.json_utils import salvar_staging, carregar_staging
+from utils.dag_factory import criar_tasks
 
-logger = logging.getLogger(__name__)
-
-STAGING_DIR = PROJECT_ROOT / "data" / "nasa_power" / "agro_weather"
-TABELA = "AGRO_WEATHER"
-
-
-# ── Tasks ──────────────────────────────────────────────────────────────────────
-
-def _extrair_transformar(**context) -> str:
-    ds = context["ds"]
-    registros = extrair_todas_regioes()
-    if not registros:
-        raise ValueError(f"[{TABELA}] Nenhum registro extraído da API. Verifique a conexão.")
-    arquivo = STAGING_DIR / f"staging_{ds}.json"
-    salvar_staging(registros, arquivo)
-    logger.info(f"[dag_agro_weather] Staging salvo: {arquivo} ({len(registros)} registros)")
-    return str(arquivo)
-
-
-def _carregar_oracle(**context) -> int:
-    arquivo = context["ti"].xcom_pull(task_ids="extrair_transformar_task")
-    registros = carregar_staging(Path(arquivo))
-    with OracleLoader() as loader:
-        total = loader.carregar_agro_weather(registros)
-        loader.registrar_execucao(context["dag"].dag_id, TABELA, total)
-    logger.info(f"[dag_agro_weather] {total} registros carregados no Oracle.")
-    return total
-
-
-def _limpar_staging(**context):
-    arquivo = context["ti"].xcom_pull(task_ids="extrair_transformar_task")
-    Path(arquivo).unlink(missing_ok=True)
-    logger.info(f"[dag_agro_weather] Staging removido: {arquivo}")
-
-
-# ── DAG ────────────────────────────────────────────────────────────────────────
+extrair_fn, carregar_fn, limpar_fn = criar_tasks(
+    extrair_fn=extrair_todas_regioes,
+    staging_dir=PROJECT_ROOT / "data" / "nasa_power" / "agro_weather",
+    tabela="AGRO_WEATHER",
+    loader_method="carregar_agro_weather",
+)
 
 with DAG(
     dag_id="nasa_power_agro_weather",
@@ -74,17 +36,15 @@ with DAG(
 
     extrair_transformar_task = PythonOperator(
         task_id="extrair_transformar_task",
-        python_callable=_extrair_transformar,
+        python_callable=extrair_fn,
     )
-
     carregar_oracle_task = PythonOperator(
         task_id="carregar_oracle_task",
-        python_callable=_carregar_oracle,
+        python_callable=carregar_fn,
     )
-
     limpar_staging_task = PythonOperator(
         task_id="limpar_staging_task",
-        python_callable=_limpar_staging,
+        python_callable=limpar_fn,
     )
 
     extrair_transformar_task >> carregar_oracle_task >> limpar_staging_task
