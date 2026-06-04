@@ -100,7 +100,25 @@ CREATE TABLE AGRICULTURE (
     CONSTRAINT uq_agriculture UNIQUE (regiao, data_previsao, dt_ingestao)
 );
 
+-- ── PIPELINE_LOG ─────────────────────────────────────────────────────────────
+-- Auditoria de execuções: registra cada carga bem-sucedida nas tabelas
+
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TABLE PIPELINE_LOG';
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END;
+/
+
+CREATE TABLE PIPELINE_LOG (
+    id            NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    dag_id        VARCHAR2(100)  NOT NULL,
+    tabela        VARCHAR2(100)  NOT NULL,
+    qtd_registros NUMBER         NOT NULL,
+    dt_execucao   TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ── Verificação ───────────────────────────────────────────────────────────────
 SELECT table_name FROM user_tables
-WHERE table_name IN ('AGRO_WEATHER', 'SOLAR_RADIATION', 'WEATHER', 'AGRICULTURE')
+WHERE table_name IN ('AGRO_WEATHER', 'SOLAR_RADIATION', 'WEATHER', 'AGRICULTURE', 'PIPELINE_LOG')
 ORDER BY table_name;

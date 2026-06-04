@@ -2,15 +2,16 @@
 dags/upload/open_meteo/dag_agriculture.py
 ------------------------------------------
 DAG que extrai previsão agrícola do Open-Meteo e carrega
-na tabela PREVISAO_AGRICOLA do Oracle XE.
+na tabela AGRICULTURE do Oracle XE.
 
 A cada execução diária um novo snapshot de previsão (16 dias à frente)
 é inserido — por isso usa INSERT simples, não MERGE.
 
 Fluxo:
-    extrair_transformar_task  >>  carregar_oracle_task
+    extrair_transformar_task >> carregar_oracle_task >> limpar_staging_task
 
 Staging intermediário: data/open_meteo/agriculture/staging_{ds}.json
+Acionado exclusivamente pelo trigger_master (schedule_interval=None).
 """
 
 import sys
@@ -31,6 +32,7 @@ from utils.json_utils import salvar_staging, carregar_staging
 logger = logging.getLogger(__name__)
 
 STAGING_DIR = PROJECT_ROOT / "data" / "open_meteo" / "agriculture"
+TABELA = "AGRICULTURE"
 
 
 # ── Tasks ──────────────────────────────────────────────────────────────────────
@@ -38,6 +40,8 @@ STAGING_DIR = PROJECT_ROOT / "data" / "open_meteo" / "agriculture"
 def _extrair_transformar(**context) -> str:
     ds = context["ds"]
     registros = extrair_todas_regioes()
+    if not registros:
+        raise ValueError(f"[{TABELA}] Nenhum registro extraído da API. Verifique a conexão.")
     arquivo = STAGING_DIR / f"staging_{ds}.json"
     salvar_staging(registros, arquivo)
     logger.info(f"[dag_agriculture] Staging salvo: {arquivo} ({len(registros)} registros)")
@@ -49,8 +53,15 @@ def _carregar_oracle(**context) -> int:
     registros = carregar_staging(Path(arquivo))
     with OracleLoader() as loader:
         total = loader.carregar_agriculture(registros)
+        loader.registrar_execucao(context["dag"].dag_id, TABELA, total)
     logger.info(f"[dag_agriculture] {total} registros carregados no Oracle.")
     return total
+
+
+def _limpar_staging(**context):
+    arquivo = context["ti"].xcom_pull(task_ids="extrair_transformar_task")
+    Path(arquivo).unlink(missing_ok=True)
+    logger.info(f"[dag_agriculture] Staging removido: {arquivo}")
 
 
 # ── DAG ────────────────────────────────────────────────────────────────────────
@@ -58,10 +69,10 @@ def _carregar_oracle(**context) -> int:
 with DAG(
     dag_id="open_meteo_agriculture",
     description="Extrai previsão agrícola do Open-Meteo e carrega no Oracle",
-    schedule_interval="@daily",
+    schedule_interval=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=["open_meteo", "previsao_agricola", "oracle"],
+    tags=["open_meteo", "agriculture", "oracle"],
 ) as dag:
 
     extrair_transformar_task = PythonOperator(
@@ -74,4 +85,9 @@ with DAG(
         python_callable=_carregar_oracle,
     )
 
-    extrair_transformar_task >> carregar_oracle_task
+    limpar_staging_task = PythonOperator(
+        task_id="limpar_staging_task",
+        python_callable=_limpar_staging,
+    )
+
+    extrair_transformar_task >> carregar_oracle_task >> limpar_staging_task

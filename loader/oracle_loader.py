@@ -159,6 +159,17 @@ class OracleLoader:
         logger.info(f"[AGRICULTURE] {len(params)} registros inseridos.")
         return len(params)
 
+    def registrar_execucao(self, dag_id: str, tabela: str, qtd_registros: int) -> None:
+        """Grava uma linha em PIPELINE_LOG para auditoria de cada execução."""
+        sql = """
+        INSERT INTO PIPELINE_LOG (dag_id, tabela, qtd_registros, dt_execucao)
+        VALUES (:dag_id, :tabela, :qtd_registros, CURRENT_TIMESTAMP)
+        """
+        with self.conn.cursor() as cur:
+            cur.execute(sql, {"dag_id": dag_id, "tabela": tabela, "qtd_registros": qtd_registros})
+        self.conn.commit()
+        logger.info(f"[PIPELINE_LOG] {dag_id} → {tabela}: {qtd_registros} registros")
+
     # ── Helpers ────────────────────────────────────────────────────────────────
 
     def _executar_merge(self, sql: str, registros: list[dict], tabela: str) -> int:

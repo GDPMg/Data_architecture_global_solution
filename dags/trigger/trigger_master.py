@@ -2,25 +2,23 @@
 dags/trigger/trigger_master.py
 -------------------------------
 DAG mestre que dispara os 4 pipelines individuais em paralelo.
+Roda todos os dias às 06:00 no horário de São Paulo.
 
 Topologia:
     [trigger_agro_weather, trigger_solar_radiation,
      trigger_open_meteo_weather, trigger_open_meteo_agriculture]
-
-Todos os 4 pipelines são independentes entre si e rodam ao mesmo tempo.
-A DAG mestre só conclui quando todos os 4 terminarem com sucesso.
 """
 
-from datetime import datetime
+import pendulum
 
 from airflow import DAG
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 with DAG(
     dag_id="trigger_master",
-    description="Orquestrador principal — dispara os 4 pipelines de ingestão em paralelo",
-    schedule_interval="@daily",
-    start_date=datetime(2024, 1, 1),
+    description="Orquestrador principal — dispara os 4 pipelines às 06h (São Paulo)",
+    schedule_interval="0 6 * * *",
+    start_date=pendulum.datetime(2024, 1, 1, tz="America/Sao_Paulo"),
     catchup=False,
     tags=["master", "orquestracao"],
 ) as dag:
