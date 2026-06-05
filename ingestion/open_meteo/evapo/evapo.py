@@ -166,7 +166,9 @@ def extrair_todas_regioes(
         data_fim = ontem
         logger.info(f"[{NOME_TABELA}] Incremental: carregando {ontem}")
     else:
-        logger.info(f"[{NOME_TABELA}] Full: carregando últimos {janela_dias} dias")
+        ontem = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+        data_fim = ontem
+        logger.info(f"[{NOME_TABELA}] Full: carregando últimos {janela_dias} dias até {ontem}")
 
     return executar_para_todas_regioes(
         extrair_fn=extrair,
