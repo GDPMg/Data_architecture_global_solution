@@ -3,13 +3,19 @@ utils/dag_factory.py
 ---------------------
 Fábrica de tasks para as DAGs de ingestão.
 
-Os 4 pipelines (agro_weather, solar_radiation, weather, agriculture) têm
+Os 4 pipelines (agro_weather, solar_radiation, evapo, agriculture) têm
 exatamente o mesmo fluxo — só mudam: módulo de extração, diretório de
 staging, nome da tabela e método do OracleLoader. Esta fábrica centraliza
 a lógica e elimina a duplicação.
 
+Modo de carga:
+    O parâmetro "modo" é lido dos params do Airflow (configurável ao
+    triggerar a DAG manualmente):
+        - "incremental" (padrão): carrega apenas d-1
+        - "full"                : carrega os últimos 120 dias
+
 Uso em cada DAG:
-    from utils.dag_factory import criar_tasks
+    from utils.dag_factory import criar_tasks, PARAM_MODO
 
     extrair_fn, carregar_fn, limpar_fn = criar_tasks(
         extrair_fn=extrair_todas_regioes,
@@ -17,14 +23,27 @@ Uso em cada DAG:
         tabela="AGRO_WEATHER",
         loader_method="carregar_agro_weather",
     )
+
+    with DAG(..., params=PARAM_MODO) as dag:
+        ...
 """
 
 import logging
 from pathlib import Path
 from typing import Callable
 
+from airflow.models.param import Param
 from loader.oracle_loader import OracleLoader
 from utils.json_utils import salvar_staging, carregar_staging
+
+# Parâmetro padrão para todas as DAGs históricas — importar e passar ao DAG
+PARAM_MODO = {
+    "modo": Param(
+        "incremental",
+        enum=["incremental", "full"],
+        description="incremental: carrega d-1 | full: carrega últimos 120 dias",
+    )
+}
 
 
 def criar_tasks(
@@ -47,7 +66,9 @@ def criar_tasks(
 
     def extrair_transformar(**context) -> str:
         ds = context["ds"]
-        registros = extrair_fn()
+        modo = context.get("params", {}).get("modo", "incremental")
+        logger.info(f"[{tabela}] Modo de carga: {modo}")
+        registros = extrair_fn(modo=modo)
         if not registros:
             raise ValueError(f"[{tabela}] Nenhum registro extraído da API.")
         arquivo = staging_dir / f"staging_{ds}.json"

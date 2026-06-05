@@ -20,6 +20,8 @@ from typing import Optional
 from script.api_open_meteo import OpenMeteoClient, REGIOES_AGRICOLAS
 from utils.ingestion_utils import executar_para_todas_regioes, arredondar
 
+JANELA_FULL_DIAS = 120
+
 logger = logging.getLogger(__name__)
 
 
@@ -148,9 +150,24 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
 def extrair_todas_regioes(
     data_inicio: Optional[str] = None,
     data_fim: Optional[str] = None,
-    janela_dias: int = 90,
+    janela_dias: int = JANELA_FULL_DIAS,
+    modo: str = "incremental",
 ) -> list[dict]:
-    """Extrai e transforma todas as regiões. Ideal para uso direto na DAG."""
+    """
+    Extrai e transforma todas as regiões. Ideal para uso direto na DAG.
+
+    Parâmetros:
+        modo : "incremental" → carrega apenas d-1 (ontem)
+               "full"        → carrega os últimos JANELA_FULL_DIAS dias
+    """
+    if modo == "incremental":
+        ontem = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+        data_inicio = ontem
+        data_fim = ontem
+        logger.info(f"[{NOME_TABELA}] Incremental: carregando {ontem}")
+    else:
+        logger.info(f"[{NOME_TABELA}] Full: carregando últimos {janela_dias} dias")
+
     return executar_para_todas_regioes(
         extrair_fn=extrair,
         transformar_fn=transformar,

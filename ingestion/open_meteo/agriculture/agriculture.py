@@ -133,6 +133,7 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
 
 def extrair_todas_regioes(
     dias_previsao: int = DIAS_PREVISAO_PADRAO,
+    **kwargs,
 ) -> list[dict]:
     """Extrai e transforma todas as regiões. Ideal para uso direto na DAG."""
     return executar_para_todas_regioes(

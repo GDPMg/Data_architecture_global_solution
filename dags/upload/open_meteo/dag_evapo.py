@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from ingestion.open_meteo.evapo.evapo import extrair_todas_regioes
-from utils.dag_factory import criar_tasks
+from utils.dag_factory import criar_tasks, PARAM_MODO
 
 extrair_fn, carregar_fn, limpar_fn = criar_tasks(
     extrair_fn=extrair_todas_regioes,
@@ -32,6 +32,7 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["open_meteo", "evapo", "oracle"],
+    params=PARAM_MODO,
 ) as dag:
 
     extrair_transformar_task = PythonOperator(

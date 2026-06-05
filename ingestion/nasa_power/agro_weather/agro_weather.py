@@ -15,10 +15,14 @@ Por que essa tabela?
 """
 
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Optional
 from script.api_nasa_power import NasaPowerClient, REGIOES_AGRICOLAS
 from utils.ingestion_utils import executar_para_todas_regioes
+
+JANELA_FULL_DIAS = 120
+# NASA POWER tem ~7 dias de latência — d-1 real é o dia mais recente disponível
+LATENCIA_NASA_DIAS = 7
 
 logger = logging.getLogger(__name__)
 
@@ -178,9 +182,25 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
 def extrair_todas_regioes(
     data_inicio: Optional[str] = None,
     data_fim: Optional[str] = None,
-    janela_dias: int = 90,
+    janela_dias: int = JANELA_FULL_DIAS,
+    modo: str = "incremental",
 ) -> list[dict]:
-    """Extrai e transforma todas as regiões. Ideal para uso direto na DAG."""
+    """
+    Extrai e transforma todas as regiões. Ideal para uso direto na DAG.
+
+    Parâmetros:
+        modo : "incremental" → carrega o dia mais recente disponível (hoje - LATENCIA_NASA_DIAS)
+               "full"        → carrega os últimos JANELA_FULL_DIAS dias
+    """
+    if modo == "incremental":
+        # NASA tem latência de ~7 dias; d-1 equivale ao último dia com dados disponíveis
+        d1_nasa = (date.today() - timedelta(days=LATENCIA_NASA_DIAS)).strftime("%Y%m%d")
+        data_inicio = d1_nasa
+        data_fim = d1_nasa
+        logger.info(f"[{NOME_TABELA}] Incremental: carregando {d1_nasa} (d-{LATENCIA_NASA_DIAS} NASA)")
+    else:
+        logger.info(f"[{NOME_TABELA}] Full: carregando últimos {janela_dias} dias")
+
     return executar_para_todas_regioes(
         extrair_fn=extrair,
         transformar_fn=transformar,
