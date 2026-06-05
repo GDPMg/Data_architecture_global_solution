@@ -54,27 +54,27 @@ CREATE TABLE SOLAR_RADIATION (
     CONSTRAINT uq_solar_radiation UNIQUE (regiao, data)
 );
 
--- ── WEATHER ───────────────────────────────────────────────────────────────────
--- Histórico climático diário do Open-Meteo (últimos 90 dias)
+-- ── EVAPO ──────────────────────────────────────────────────────────────
+-- Evapotranspiração e estresse hídrico diários do Open-Meteo (últimos 90 dias)
+-- Variáveis únicas: ET0 histórico, déficit de pressão de vapor, horas de sol, rajadas
 
 BEGIN
-    EXECUTE IMMEDIATE 'DROP TABLE WEATHER';
+    EXECUTE IMMEDIATE 'DROP TABLE EVAPO';
 EXCEPTION
     WHEN OTHERS THEN NULL;
 END;
 /
 
-CREATE TABLE WEATHER (
-    id              NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    regiao          VARCHAR2(100)  NOT NULL,
-    data            DATE           NOT NULL,
-    temp_max        NUMBER(5,2),
-    temp_min        NUMBER(5,2),
-    precipitacao    NUMBER(7,2),
-    umidade_max     NUMBER(5,2),
-    vento_max       NUMBER(6,2),
-    dt_ingestao     TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_weather UNIQUE (regiao, data)
+CREATE TABLE EVAPO (
+    id                      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    regiao                  VARCHAR2(100)  NOT NULL,
+    data                    DATE           NOT NULL,
+    et0_evapotranspiracao   NUMBER(7,2),   -- et0_fao_evapotranspiration (mm/dia)
+    deficit_pressao_vapor   NUMBER(6,3),   -- vapor_pressure_deficit_max (kPa)
+    duracao_sol             NUMBER(5,2),   -- sunshine_duration convertida (horas)
+    rajada_vento_max        NUMBER(6,2),   -- wind_gusts_10m_max (km/h)
+    dt_ingestao             TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_evapo_diario UNIQUE (regiao, data)
 );
 
 -- ── AGRICULTURE ───────────────────────────────────────────────────────────────
@@ -120,5 +120,5 @@ CREATE TABLE PIPELINE_LOG (
 
 -- ── Verificação ───────────────────────────────────────────────────────────────
 SELECT table_name FROM user_tables
-WHERE table_name IN ('AGRO_WEATHER', 'SOLAR_RADIATION', 'WEATHER', 'AGRICULTURE', 'PIPELINE_LOG')
+WHERE table_name IN ('AGRO_WEATHER', 'SOLAR_RADIATION', 'EVAPO', 'AGRICULTURE', 'PIPELINE_LOG')
 ORDER BY table_name;

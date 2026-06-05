@@ -6,7 +6,7 @@ Roda todos os dias às 06:00 no horário de São Paulo.
 
 Topologia:
     [trigger_agro_weather, trigger_solar_radiation,
-     trigger_open_meteo_weather, trigger_open_meteo_agriculture]
+     trigger_open_meteo_evapo, trigger_open_meteo_agriculture]
 """
 
 import pendulum
@@ -39,9 +39,9 @@ with DAG(
         poke_interval=30,
     )
 
-    trigger_open_meteo_weather = TriggerDagRunOperator(
-        task_id="trigger_open_meteo_weather",
-        trigger_dag_id="open_meteo_weather",
+    trigger_open_meteo_evapo = TriggerDagRunOperator(
+        task_id="trigger_open_meteo_evapo",
+        trigger_dag_id="open_meteo_evapo",
         wait_for_completion=True,
         reset_dag_run=True,
         poke_interval=30,
@@ -59,6 +59,6 @@ with DAG(
     [
         trigger_agro_weather,
         trigger_solar_radiation,
-        trigger_open_meteo_weather,
+        trigger_open_meteo_evapo,
         trigger_open_meteo_agriculture,
     ]

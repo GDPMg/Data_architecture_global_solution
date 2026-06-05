@@ -108,29 +108,30 @@ class OracleLoader:
         """
         return self._executar_merge(sql, registros, "SOLAR_RADIATION")
 
-    def carregar_weather(self, registros: list[dict]) -> int:
-        """MERGE INTO WEATHER por (regiao, data)."""
+    def carregar_evapo(self, registros: list[dict]) -> int:
+        """MERGE INTO EVAPO por (regiao, data)."""
         if not registros:
-            logger.info("[WEATHER] Sem registros para carregar.")
+            logger.info("[EVAPO] Sem registros para carregar.")
             return 0
 
         sql = """
-        MERGE INTO WEATHER tgt
+        MERGE INTO EVAPO tgt
         USING (SELECT :regiao AS regiao, :data AS data FROM DUAL) src
         ON (tgt.regiao = src.regiao AND tgt.data = src.data)
         WHEN MATCHED THEN UPDATE SET
-            tgt.temp_max     = :temp_max,
-            tgt.temp_min     = :temp_min,
-            tgt.precipitacao = :precipitacao,
-            tgt.umidade_max  = :umidade_max,
-            tgt.vento_max    = :vento_max,
-            tgt.dt_ingestao  = CURRENT_TIMESTAMP
+            tgt.et0_evapotranspiracao = :et0_evapotranspiracao,
+            tgt.deficit_pressao_vapor = :deficit_pressao_vapor,
+            tgt.duracao_sol           = :duracao_sol,
+            tgt.rajada_vento_max      = :rajada_vento_max,
+            tgt.dt_ingestao           = CURRENT_TIMESTAMP
         WHEN NOT MATCHED THEN INSERT
-            (regiao, data, temp_max, temp_min, precipitacao, umidade_max, vento_max)
+            (regiao, data, et0_evapotranspiracao, deficit_pressao_vapor,
+             duracao_sol, rajada_vento_max)
         VALUES
-            (src.regiao, src.data, :temp_max, :temp_min, :precipitacao, :umidade_max, :vento_max)
+            (src.regiao, src.data, :et0_evapotranspiracao, :deficit_pressao_vapor,
+             :duracao_sol, :rajada_vento_max)
         """
-        return self._executar_merge(sql, registros, "WEATHER")
+        return self._executar_merge(sql, registros, "EVAPO")
 
     def carregar_agriculture(self, registros: list[dict]) -> int:
         """

@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, date
 from typing import Optional
 from script.api_open_meteo import OpenMeteoClient, REGIOES_AGRICOLAS
+from utils.ingestion_utils import executar_para_todas_regioes, arredondar
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
             total_nulos += 1
             continue
 
-        prob = _arredondar(prob_chuva[i] if i < len(prob_chuva) else None)
+        prob = arredondar(prob_chuva[i] if i < len(prob_chuva) else None)
         # Garante que probabilidade não ultrapasse 100%
         if prob is not None and prob > 100:
             prob = 100.0
@@ -114,10 +115,10 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
         registro = {
             "regiao":                regiao_nome,
             "data_previsao":         datetime.strptime(data_str, "%Y-%m-%d").date(),
-            "et0_evapotranspiracao": _arredondar(et0[i] if i < len(et0) else None),
-            "precipitacao_prevista": _arredondar(precipitacao[i] if i < len(precipitacao) else None),
-            "temp_max_prevista":     _arredondar(temp_max[i] if i < len(temp_max) else None),
-            "radiacao_solar":        _arredondar(radiacao[i] if i < len(radiacao) else None),
+            "et0_evapotranspiracao": arredondar(et0[i] if i < len(et0) else None),
+            "precipitacao_prevista": arredondar(precipitacao[i] if i < len(precipitacao) else None),
+            "temp_max_prevista":     arredondar(temp_max[i] if i < len(temp_max) else None),
+            "radiacao_solar":        arredondar(radiacao[i] if i < len(radiacao) else None),
             "prob_precipitacao":     prob,
             "dt_ingestao":           dt_ingestao,
         }
@@ -133,39 +134,11 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
 def extrair_todas_regioes(
     dias_previsao: int = DIAS_PREVISAO_PADRAO,
 ) -> list[dict]:
-    """
-    Conveniência: extrai e transforma todas as regiões de uma vez.
-    Ideal para uso direto na DAG do Airflow.
-
-    Retorna lista unificada de registros de todas as regiões.
-    """
-    todos_registros = []
-
-    for regiao_key in REGIOES_AGRICOLAS:
-        try:
-            dados_api = extrair(
-                regiao_key=regiao_key,
-                dias_previsao=dias_previsao,
-            )
-            registros = transformar(dados_api, regiao_key)
-            todos_registros.extend(registros)
-            logger.info(
-                f"[{NOME_TABELA}] {regiao_key}: {len(registros)} registros adicionados"
-            )
-        except Exception as e:
-            logger.error(f"[{NOME_TABELA}] Falha na região {regiao_key}: {e}")
-
-    logger.info(f"[{NOME_TABELA}] Total geral: {len(todos_registros)} registros")
-    return todos_registros
-
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
-def _arredondar(valor) -> Optional[float]:
-    """Arredonda float para 2 casas ou retorna None."""
-    if valor is None:
-        return None
-    try:
-        return round(float(valor), 2)
-    except (TypeError, ValueError):
-        return None
+    """Extrai e transforma todas as regiões. Ideal para uso direto na DAG."""
+    return executar_para_todas_regioes(
+        extrair_fn=extrair,
+        transformar_fn=transformar,
+        regioes=REGIOES_AGRICOLAS,
+        nome_tabela=NOME_TABELA,
+        dias_previsao=dias_previsao,
+    )

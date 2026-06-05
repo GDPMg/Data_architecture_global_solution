@@ -18,6 +18,7 @@ import logging
 from datetime import datetime, date
 from typing import Optional
 from script.api_nasa_power import NasaPowerClient, REGIOES_AGRICOLAS
+from utils.ingestion_utils import executar_para_todas_regioes
 
 logger = logging.getLogger(__name__)
 
@@ -179,28 +180,16 @@ def extrair_todas_regioes(
     data_fim: Optional[str] = None,
     janela_dias: int = 90,
 ) -> list[dict]:
-    """
-    Conveniência: extrai e transforma todas as regiões de uma vez.
-    Ideal para uso direto na DAG do Airflow.
-    """
-    todos_registros = []
-
-    for regiao_key in REGIOES_AGRICOLAS:
-        try:
-            dados_api = extrair(
-                regiao_key=regiao_key,
-                data_inicio=data_inicio,
-                data_fim=data_fim,
-                janela_dias=janela_dias,
-            )
-            registros = transformar(dados_api, regiao_key)
-            todos_registros.extend(registros)
-            logger.info(f"[{NOME_TABELA}] {regiao_key}: {len(registros)} registros adicionados")
-        except Exception as e:
-            logger.error(f"[{NOME_TABELA}] Falha na região {regiao_key}: {e}")
-
-    logger.info(f"[{NOME_TABELA}] Total geral: {len(todos_registros)} registros")
-    return todos_registros
+    """Extrai e transforma todas as regiões. Ideal para uso direto na DAG."""
+    return executar_para_todas_regioes(
+        extrair_fn=extrair,
+        transformar_fn=transformar,
+        regioes=REGIOES_AGRICOLAS,
+        nome_tabela=NOME_TABELA,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        janela_dias=janela_dias,
+    )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
