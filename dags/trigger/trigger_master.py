@@ -1,14 +1,3 @@
-"""
-dags/trigger/trigger_master.py
--------------------------------
-DAG mestre que dispara os 4 pipelines individuais em paralelo.
-Roda todos os dias às 06:00 no horário de São Paulo.
-
-Topologia:
-    [trigger_agro_weather, trigger_solar_radiation,
-     trigger_open_meteo_evapo, trigger_open_meteo_agricultural_forecast]
-"""
-
 import pendulum
 
 from airflow import DAG
@@ -55,7 +44,6 @@ with DAG(
         poke_interval=30,
     )
 
-    # Todos os 4 rodam em paralelo (sem dependência entre si)
     [
         trigger_agro_weather,
         trigger_solar_radiation,

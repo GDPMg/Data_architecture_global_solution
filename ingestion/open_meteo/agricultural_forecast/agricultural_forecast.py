@@ -1,12 +1,3 @@
-"""
-ingestion/open_meteo/agricultural_forecast/agricultural_forecast.py
----------------------------------------------------------------------
-Define os parâmetros da tabela AGRICULTURAL_FORECAST e transforma
-a resposta da API em registros prontos para carga no Oracle.
-
-Tabela Oracle alvo: AGRICULTURAL_FORECAST
-"""
-
 import logging
 from datetime import datetime, date
 from typing import Optional
@@ -16,12 +7,10 @@ from utils.ingestion_utils import executar_para_todas_regioes, arredondar
 logger = logging.getLogger(__name__)
 
 
-# ── Configuração da tabela ─────────────────────────────────────────────────────
 
 NOME_TABELA = "AGRICULTURAL_FORECAST"
 DIAS_PREVISAO_PADRAO = 16
 
-# Variáveis exatas que serão requisitadas na API
 VARIAVEIS_DAILY = [
     "et0_fao_evapotranspiration",    # Evapotranspiração de referência (mm)
     "precipitation_sum",             # Precipitação prevista (mm)
@@ -29,25 +18,6 @@ VARIAVEIS_DAILY = [
     "shortwave_radiation_sum",       # Radiação solar total (MJ/m²)
     "precipitation_probability_max", # Probabilidade de precipitação (%)
 ]
-
-# DDL Oracle de referência
-DDL_ORACLE = """
-CREATE TABLE AGRICULTURAL_FORECAST (
-    id                      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    regiao                  VARCHAR2(100)  NOT NULL,
-    data_previsao           DATE           NOT NULL,
-    et0_evapotranspiracao   NUMBER(7,2),
-    precipitacao_prevista   NUMBER(7,2),
-    temp_max_prevista       NUMBER(5,2),
-    radiacao_solar          NUMBER(8,2),
-    prob_precipitacao       NUMBER(5,2),
-    dt_ingestao             TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_agricultural_forecast UNIQUE (regiao, data_previsao)
-);
-"""
-
-
-# ── Funções principais ─────────────────────────────────────────────────────────
 
 def extrair(
     regiao_key: str,
@@ -59,9 +29,6 @@ def extrair(
     Parâmetros:
         regiao_key    : chave da região (ex: "cascavel_pr")
         dias_previsao : quantos dias à frente prever (máx 16)
-
-    Retorna:
-        Resposta bruta da API (dict)
     """
     logger.info(
         f"[{NOME_TABELA}] Extraindo previsão {dias_previsao} dias para {regiao_key}"
@@ -78,8 +45,6 @@ def extrair(
 def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
     """
     Transforma a resposta da API em lista de registros para o Oracle.
-
-    Cada item corresponde a uma linha da tabela AGRICULTURAL_FORECAST.
 
     Tratamentos aplicados:
         - Remoção de registros com data nula

@@ -1,18 +1,3 @@
-"""
-tables/nasa_power/solar_radiation_daily.py
--------------------------------------------
-Define os parâmetros exatos da tabela SOLAR_RADIATION_DAILY e transforma
-a resposta da API em registros prontos para carga no Oracle.
-
-Fonte dos dados: NASA CERES SYN1deg + GEWEX SRB (satélites)
-Tabela Oracle alvo: SOLAR_RADIATION_DAILY
-
-Por que essa tabela?
-    Radiação solar é o dado mais distintivo da NASA POWER vs. Open-Meteo.
-    É derivada exclusivamente de satélites (CERES/SRB), não de modelos de reanálise.
-    Fundamental para cálculo de produtividade agrícola e zoneamento de culturas.
-"""
-
 import logging
 from datetime import datetime, date, timedelta
 from typing import Optional
@@ -25,12 +10,9 @@ LATENCIA_NASA_DIAS = 7
 logger = logging.getLogger(__name__)
 
 
-# ── Configuração da tabela ─────────────────────────────────────────────────────
 
 NOME_TABELA = "SOLAR_RADIATION_DAILY"
 
-# Parâmetros NASA POWER para esta tabela
-# Fonte: CERES SYN1deg (satélite) — disponíveis no community AG
 PARAMETROS = [
     "ALLSKY_SFC_SW_DWN",   # Radiação solar de superfície (céu aberto) — Wh/m²/dia
     "CLRSKY_SFC_SW_DWN",   # Radiação solar de superfície (céu limpo)  — Wh/m²/dia
@@ -39,24 +21,6 @@ PARAMETROS = [
     "TOA_SW_DWN",          # Radiação no topo da atmosfera — Wh/m²/dia
 ]
 
-# DDL Oracle de referência
-DDL_ORACLE = """
-CREATE TABLE SOLAR_RADIATION_DAILY (
-    id                      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    regiao                  VARCHAR2(100)  NOT NULL,
-    data                    DATE           NOT NULL,
-    radiacao_sup_total      NUMBER(10,2),   -- ALLSKY_SFC_SW_DWN (Wh/m²/dia)
-    radiacao_sup_ceu_limpo  NUMBER(10,2),   -- CLRSKY_SFC_SW_DWN (Wh/m²/dia)
-    indice_clareza          NUMBER(5,4),    -- ALLSKY_KT (0.0000 a 1.0000)
-    par_fotossintetico      NUMBER(8,2),    -- ALLSKY_SFC_PAR_TOT (W/m²)
-    radiacao_topo_atmosfera NUMBER(10,2),   -- TOA_SW_DWN (Wh/m²/dia)
-    dt_ingestao             TIMESTAMP       DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_solar_radiation UNIQUE (regiao, data)
-);
-"""
-
-
-# ── Funções principais ─────────────────────────────────────────────────────────
 
 def extrair(
     regiao_key: str,
@@ -100,9 +64,6 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
     """
     Transforma a resposta da NASA POWER em lista de registros para o Oracle.
 
-    Estrutura da resposta NASA POWER:
-        dados["properties"]["parameter"]["ALLSKY_SFC_SW_DWN"]["20240101"] = valor
-
     Tratamentos aplicados:
         - Conversão de chaves de data "YYYYMMDD" → objeto date
         - Fill values (-999) substituídos por None (NULL no Oracle)
@@ -121,7 +82,6 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
     par        = parametros_dados.get("ALLSKY_SFC_PAR_TOT", {})
     toa        = parametros_dados.get("TOA_SW_DWN", {})
 
-    # Todas as datas disponíveis no primeiro parâmetro retornado
     datas = sorted(allsky.keys())
 
     registros = []
@@ -141,7 +101,6 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
         val_par    = _limpar(par.get(data_str), client)
         val_toa    = _limpar(toa.get(data_str), client)
 
-        # Conta registros onde todos os valores são fill
         if all(v is None for v in [val_allsky, val_clrsky, val_kt, val_par, val_toa]):
             total_fill += 1
             continue
@@ -173,10 +132,6 @@ def extrair_todas_regioes(
 ) -> list[dict]:
     """
     Extrai e transforma todas as regiões. Ideal para uso direto na DAG.
-
-    Parâmetros:
-        modo : "incremental" → carrega o dia mais recente disponível (hoje - LATENCIA_NASA_DIAS)
-               "full"        → carrega os últimos JANELA_FULL_DIAS dias
     """
     if modo == "incremental":
         d1_nasa = (date.today() - timedelta(days=LATENCIA_NASA_DIAS)).strftime("%Y%m%d")
@@ -211,7 +166,6 @@ def _limpar(valor, client: NasaPowerClient) -> Optional[float]:
 
 def _limpar_kt(valor, client: NasaPowerClient) -> Optional[float]:
     """
-    Trata o índice de clareza ALLSKY_KT.
     Deve estar entre 0 e 1. Arredonda para 4 casas decimais.
     """
     if client.is_fill_value(valor):

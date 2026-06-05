@@ -1,10 +1,3 @@
-"""
-dags/upload/nasa_power/dag_agro_weather.py
-------------------------------------------
-Pipeline: NASA POWER → staging JSON → AGRO_WEATHER (Oracle)
-Acionado pelo trigger_master. Lógica das tasks em utils/dag_factory.py.
-"""
-
 import sys
 from datetime import datetime
 from pathlib import Path

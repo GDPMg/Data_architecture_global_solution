@@ -1,10 +1,3 @@
-"""
-dags/upload/nasa_power/dag_solar_radiation.py
-----------------------------------------------
-Pipeline: NASA POWER → staging JSON → SOLAR_RADIATION (Oracle)
-Acionado pelo trigger_master. Lógica das tasks em utils/dag_factory.py.
-"""
-
 import sys
 from datetime import datetime
 from pathlib import Path

@@ -1,33 +1,3 @@
-"""
-utils/dag_factory.py
----------------------
-Fábrica de tasks para as DAGs de ingestão.
-
-Os 4 pipelines (agro_weather, solar_radiation, evapo, agricultural_forecast) têm
-exatamente o mesmo fluxo — só mudam: módulo de extração, diretório de
-staging, nome da tabela e método do OracleLoader. Esta fábrica centraliza
-a lógica e elimina a duplicação.
-
-Modo de carga:
-    O parâmetro "modo" é lido dos params do Airflow (configurável ao
-    triggerar a DAG manualmente):
-        - "incremental" (padrão): carrega apenas d-1
-        - "full"                : carrega os últimos 120 dias
-
-Uso em cada DAG:
-    from utils.dag_factory import criar_tasks, PARAM_MODO
-
-    extrair_fn, carregar_fn, limpar_fn = criar_tasks(
-        extrair_fn=extrair_todas_regioes,
-        staging_dir=PROJECT_ROOT / "data" / "nasa_power" / "agro_weather",
-        tabela="AGRO_WEATHER",
-        loader_method="carregar_agro_weather",
-    )
-
-    with DAG(..., params=PARAM_MODO) as dag:
-        ...
-"""
-
 import logging
 from pathlib import Path
 from typing import Callable
@@ -54,8 +24,6 @@ def criar_tasks(
 ) -> tuple[Callable, Callable, Callable]:
     """
     Retorna as 3 callables prontas para uso em PythonOperator.
-
-    Parâmetros:
         extrair_fn    : função extrair_todas_regioes() do módulo de ingestão
         staging_dir   : diretório para o JSON intermediário
         tabela        : nome da tabela Oracle (ex: "AGRO_WEATHER")

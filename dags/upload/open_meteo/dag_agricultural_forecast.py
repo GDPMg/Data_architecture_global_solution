@@ -1,10 +1,3 @@
-"""
-dags/upload/open_meteo/dag_agricultural_forecast.py
------------------------------------------------------
-Pipeline: Open-Meteo → staging JSON → AGRICULTURAL_FORECAST (Oracle)
-Acionado pelo trigger_master. Lógica das tasks em utils/dag_factory.py.
-"""
-
 import sys
 from datetime import datetime
 from pathlib import Path

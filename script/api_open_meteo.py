@@ -1,12 +1,3 @@
-"""
-open_meteo_client.py
---------------------
-Cliente base generalizado para a API Open-Meteo.
-Deve ser usado pelos scripts de cada tabela em tables/open_meteo/.
-
-Documentação da API: https://open-meteo.com/en/docs
-"""
-
 import requests
 import logging
 from datetime import datetime, date
@@ -14,13 +5,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-
-# ── Constantes ────────────────────────────────────────────────────────────────
-
 BASE_URL_FORECAST = "https://api.open-meteo.com/v1"
 BASE_URL_ARCHIVE = "https://archive-api.open-meteo.com/v1"
 
-# Regiões agrícolas pré-definidas (lat, lon, nome)
 REGIOES_AGRICOLAS = {
     "sorriso_mt":        {"latitude": -12.54, "longitude": -55.72, "nome": "Sorriso/MT"},
     "ribeirao_preto_sp": {"latitude": -21.17, "longitude": -47.81, "nome": "Ribeirão Preto/SP"},
@@ -33,27 +20,10 @@ TIMEZONE_PADRAO = "America/Sao_Paulo"
 TIMEOUT_SEGUNDOS = 30
 
 
-# ── Cliente base ───────────────────────────────────────────────────────────────
-
 class OpenMeteoClient:
-    """
-    Cliente generalizado para a API Open-Meteo.
-
-    Uso pelos scripts de tabela:
-        client = OpenMeteoClient()
-        dados = client.buscar_historico(
-            regiao_key="sorriso_mt",
-            variaveis_daily=["temperature_2m_max", "precipitation_sum"],
-            data_inicio="2024-01-01",
-            data_fim="2024-03-31",
-        )
-    """
-
     def __init__(self, timeout: int = TIMEOUT_SEGUNDOS):
         self.timeout = timeout
         self.session = requests.Session()
-
-    # ── Métodos públicos ───────────────────────────────────────────────────────
 
     def buscar_historico(
         self,
@@ -64,20 +34,7 @@ class OpenMeteoClient:
         variaveis_hourly: Optional[list[str]] = None,
         timezone: str = TIMEZONE_PADRAO,
     ) -> dict:
-        """
-        Busca dados históricos (archive) para uma região e intervalo de datas.
 
-        Parâmetros:
-            regiao_key      : chave em REGIOES_AGRICOLAS (ex: "sorriso_mt")
-            variaveis_daily : lista de variáveis diárias (ex: ["temperature_2m_max"])
-            data_inicio     : string "YYYY-MM-DD"
-            data_fim        : string "YYYY-MM-DD"
-            variaveis_hourly: lista de variáveis horárias (opcional)
-            timezone        : fuso horário (padrão: America/Sao_Paulo)
-
-        Retorna:
-            dict com os dados da API já validado, ou lança exceção.
-        """
         regiao = self._obter_regiao(regiao_key)
 
         params = {
@@ -108,19 +65,7 @@ class OpenMeteoClient:
         variaveis_hourly: Optional[list[str]] = None,
         timezone: str = TIMEZONE_PADRAO,
     ) -> dict:
-        """
-        Busca previsão futura (forecast) para uma região.
 
-        Parâmetros:
-            regiao_key      : chave em REGIOES_AGRICOLAS (ex: "sorriso_mt")
-            variaveis_daily : lista de variáveis diárias
-            dias_previsao   : quantos dias à frente (máx 16)
-            variaveis_hourly: lista de variáveis horárias (opcional)
-            timezone        : fuso horário
-
-        Retorna:
-            dict com os dados da API já validado, ou lança exceção.
-        """
         if dias_previsao > 16:
             raise ValueError(f"dias_previsao máximo é 16. Recebido: {dias_previsao}")
 
@@ -151,8 +96,6 @@ class OpenMeteoClient:
             {"key": k, **v}
             for k, v in REGIOES_AGRICOLAS.items()
         ]
-
-    # ── Métodos internos ───────────────────────────────────────────────────────
 
     def _fazer_requisicao(
         self,

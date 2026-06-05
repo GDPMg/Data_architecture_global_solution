@@ -1,19 +1,3 @@
-"""
-ingestion/open_meteo/evapo/evapo.py
--------------------------------------
-Define os parâmetros da tabela EVAPO e transforma
-a resposta da API em registros prontos para carga no Oracle.
-
-Tabela Oracle alvo: EVAPO
-
-Dados coletados são exclusivos desta fonte — variáveis não disponíveis
-em AGRO_WEATHER (NASA) nem em AGRICULTURAL_FORECAST (previsão):
-  - ET0 histórico (AGRICULTURAL_FORECAST só tem previsão)
-  - Déficit de pressão de vapor (estresse hídrico das plantas)
-  - Duração efetiva de sol (horas)
-  - Rajadas máximas de vento (distinto de velocidade máxima)
-"""
-
 import logging
 from datetime import datetime, date, timedelta
 from typing import Optional
@@ -25,8 +9,6 @@ JANELA_FULL_DIAS = 120
 logger = logging.getLogger(__name__)
 
 
-# ── Configuração da tabela ─────────────────────────────────────────────────────
-
 NOME_TABELA = "EVAPO"
 
 VARIAVEIS_DAILY = [
@@ -35,23 +17,6 @@ VARIAVEIS_DAILY = [
     "sunshine_duration",           # Duração do sol (segundos — convertido para horas)
     "wind_gusts_10m_max",          # Rajada máxima de vento a 10m (km/h)
 ]
-
-DDL_ORACLE = """
-CREATE TABLE EVAPO (
-    id                      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    regiao                  VARCHAR2(100)  NOT NULL,
-    data                    DATE           NOT NULL,
-    et0_evapotranspiracao   NUMBER(7,2),   -- et0_fao_evapotranspiration (mm/dia)
-    deficit_pressao_vapor   NUMBER(6,3),   -- vapor_pressure_deficit_max (kPa)
-    duracao_sol             NUMBER(5,2),   -- sunshine_duration convertida (horas)
-    rajada_vento_max        NUMBER(6,2),   -- wind_gusts_10m_max (km/h)
-    dt_ingestao             TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_evapo UNIQUE (regiao, data)
-);
-"""
-
-
-# ── Funções principais ─────────────────────────────────────────────────────────
 
 def extrair(
     regiao_key: str,
@@ -67,9 +32,6 @@ def extrair(
         data_inicio : "YYYY-MM-DD" (opcional — usa janela_dias se omitido)
         data_fim    : "YYYY-MM-DD" (opcional — usa hoje se omitido)
         janela_dias : quantos dias de histórico se data_inicio não for informada
-
-    Retorna:
-        Resposta bruta da API (dict)
     """
     if data_fim is None:
         data_fim = date.today().strftime("%Y-%m-%d")
@@ -91,8 +53,6 @@ def extrair(
 def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
     """
     Transforma a resposta da API em lista de registros para o Oracle.
-
-    Cada item corresponde a uma linha da tabela EVAPO.
 
     Tratamentos aplicados:
         - Remoção de registros com data nula

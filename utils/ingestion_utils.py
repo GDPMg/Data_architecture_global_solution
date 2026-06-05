@@ -1,11 +1,3 @@
-"""
-utils/ingestion_utils.py
-------------------------
-Utilitários compartilhados pelos módulos de ingestão.
-
-Centraliza padrões que se repetem nos 4 pipelines para evitar duplicação.
-"""
-
 import logging
 from typing import Callable, Optional
 
@@ -24,14 +16,6 @@ def executar_para_todas_regioes(
 
     Substitui a função extrair_todas_regioes() repetida nos 4 módulos.
     Falhas em uma região são logadas e não interrompem as demais.
-
-    Parâmetros:
-        extrair_fn    : função extrair(regiao_key, **kwargs) do módulo
-        transformar_fn: função transformar(dados_api, regiao_key) do módulo
-        regioes       : dict REGIOES_AGRICOLAS do cliente de API
-        nome_tabela   : nome da tabela Oracle para uso nos logs
-        **kwargs      : parâmetros extras passados direto para extrair_fn
-                        (ex: janela_dias=90, data_inicio=..., dias_previsao=16)
     """
     todos_registros = []
 

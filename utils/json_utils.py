@@ -1,12 +1,3 @@
-"""
-utils/json_utils.py
--------------------
-Utilitários compartilhados de serialização JSON para as DAGs do Airflow.
-
-Problema: Python `date` e `datetime` não são serializáveis nativamente em JSON.
-Solução: encoder customizado para salvar staging, decoder automático para recarregar.
-"""
-
 import json
 from datetime import date, datetime
 from pathlib import Path
@@ -26,8 +17,6 @@ def carregar_staging(arquivo: Path) -> list[dict]:
     return [_deserializar_registro(r) for r in registros]
 
 
-# ── Helpers internos ───────────────────────────────────────────────────────────
-
 def _serializar(obj):
     if isinstance(obj, (date, datetime)):
         return obj.isoformat()
@@ -38,7 +27,6 @@ def _deserializar_registro(registro: dict) -> dict:
     """
     Percorre o registro e converte automaticamente strings no formato ISO
     (YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS) para os tipos Python corretos.
-    Funciona para qualquer nome de coluna de data.
     """
     resultado = {}
     for chave, valor in registro.items():

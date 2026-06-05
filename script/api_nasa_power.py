@@ -1,13 +1,3 @@
-"""
-nasa_power_client.py
----------------------
-Cliente base generalizado para a API NASA POWER (AG Community).
-Deve ser usado pelos scripts de cada tabela em tables/nasa_power/.
-
-Documentação oficial: https://power.larc.nasa.gov/docs/services/api/
-Parâmetros disponíveis: https://power.larc.nasa.gov/docs/methodology/
-"""
-
 import requests
 import logging
 from datetime import datetime, date, timedelta
@@ -16,19 +6,14 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-# ── Constantes ─────────────────────────────────────────────────────────────────
-
 BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
 
-# Comunidade AG = dados voltados para agrometeorologia
 COMMUNITY = "AG"
 FORMAT = "JSON"
-TIMEZONE = "LST"  # Local Solar Time — padrão da API para agricultura
+TIMEZONE = "LST"
 
-# Limite de parâmetros por requisição (restrição da NASA POWER API)
 MAX_PARAMETROS = 20
 
-# Regiões agrícolas — mesmas do Open-Meteo para cruzamento de dados
 REGIOES_AGRICOLAS = {
     "sorriso_mt":        {"latitude": -12.54, "longitude": -55.72, "nome": "Sorriso/MT"},
     "ribeirao_preto_sp": {"latitude": -21.17, "longitude": -47.81, "nome": "Ribeirão Preto/SP"},
@@ -37,33 +22,15 @@ REGIOES_AGRICOLAS = {
     "barreiras_ba":      {"latitude": -12.15, "longitude": -45.00, "nome": "Barreiras/BA"},
 }
 
-TIMEOUT_SEGUNDOS = 60  # NASA POWER pode ser mais lenta que Open-Meteo
+TIMEOUT_SEGUNDOS = 60 
 
 # Valor que a API retorna quando dado está ausente
 FILL_VALUE = -999.0
 
-
-# ── Cliente base ───────────────────────────────────────────────────────────────
-
 class NasaPowerClient:
-    """
-    Cliente generalizado para a API NASA POWER (comunidade AG, granularidade diária).
-
-    Uso pelos scripts de tabela:
-        client = NasaPowerClient()
-        dados = client.buscar(
-            regiao_key="sorriso_mt",
-            parametros=["T2M", "PRECTOTCORR", "ALLSKY_SFC_SW_DWN"],
-            data_inicio="20240101",
-            data_fim="20240331",
-        )
-    """
-
     def __init__(self, timeout: int = TIMEOUT_SEGUNDOS):
         self.timeout = timeout
         self.session = requests.Session()
-
-    # ── Métodos públicos ───────────────────────────────────────────────────────
 
     def buscar(
         self,
@@ -73,20 +40,6 @@ class NasaPowerClient:
         data_fim: str,
         community: str = COMMUNITY,
     ) -> dict:
-        """
-        Busca dados diários para uma região e intervalo de datas.
-
-        Parâmetros:
-            regiao_key  : chave em REGIOES_AGRICOLAS (ex: "sorriso_mt")
-            parametros  : lista de parâmetros NASA POWER (ex: ["T2M", "RH2M"])
-                          Máx 20 por requisição.
-            data_inicio : string "YYYYMMDD" (formato exigido pela NASA POWER)
-            data_fim    : string "YYYYMMDD"
-            community   : comunidade da API (padrão: "AG")
-
-        Retorna:
-            dict com os dados da API já validado, ou lança exceção.
-        """
         if len(parametros) > MAX_PARAMETROS:
             raise ValueError(
                 f"[NasaPower] Máximo de {MAX_PARAMETROS} parâmetros por requisição. "
@@ -114,18 +67,7 @@ class NasaPowerClient:
         janela_dias: int = 90,
         community: str = COMMUNITY,
     ) -> dict:
-        """
-        Conveniência: busca os últimos N dias a partir de hoje.
 
-        A NASA POWER tem latência de alguns dias (dados chegam com ~7 dias de atraso).
-        Por isso data_fim é ajustado para 7 dias atrás automaticamente.
-
-        Parâmetros:
-            regiao_key  : chave em REGIOES_AGRICOLAS
-            parametros  : lista de parâmetros NASA POWER
-            janela_dias : quantos dias de histórico buscar (padrão 90)
-            community   : comunidade da API
-        """
         data_fim = date.today() - timedelta(days=7)   # latência da NASA
         data_inicio = data_fim - timedelta(days=janela_dias)
 
@@ -141,7 +83,6 @@ class NasaPowerClient:
         """Retorna a lista de regiões disponíveis com lat/lon."""
         return [{"key": k, **v} for k, v in REGIOES_AGRICOLAS.items()]
 
-    # ── Métodos internos ───────────────────────────────────────────────────────
 
     def _fazer_requisicao(self, params: dict, regiao_nome: str) -> dict:
         """Executa a requisição HTTP, trata erros e retorna o JSON."""
@@ -170,7 +111,6 @@ class NasaPowerClient:
 
         dados = response.json()
 
-        # NASA POWER retorna erros dentro do JSON com HTTP 200
         if "messages" in dados:
             for msg in dados["messages"]:
                 if "error" in msg.lower() or "invalid" in msg.lower():

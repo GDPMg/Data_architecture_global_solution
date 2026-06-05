@@ -1,19 +1,3 @@
-"""
-tables/nasa_power/agro_meteo_daily.py
---------------------------------------
-Define os parâmetros exatos da tabela AGRO_METEO_DAILY e transforma
-a resposta da API em registros prontos para carga no Oracle.
-
-Fonte dos dados: NASA MERRA-2 (modelo de reanálise com dados de satélite)
-Tabela Oracle alvo: AGRO_METEO_DAILY
-
-Por que essa tabela?
-    Complementa a SOLAR_RADIATION_DAILY com variáveis agrometeorológicas
-    clássicas (temperatura, umidade, vento, ponto de orvalho, precipitação).
-    Derivadas do MERRA-2, que integra satélites + observações de superfície.
-    Permite cruzamento rico com os dados do Open-Meteo nas consultas analíticas.
-"""
-
 import logging
 from datetime import datetime, date, timedelta
 from typing import Optional
@@ -27,12 +11,8 @@ LATENCIA_NASA_DIAS = 7
 logger = logging.getLogger(__name__)
 
 
-# ── Configuração da tabela ─────────────────────────────────────────────────────
-
 NOME_TABELA = "AGRO_METEO_DAILY"
 
-# Parâmetros NASA POWER para esta tabela
-# Fonte: MERRA-2 (satélite + reanálise) — community AG
 PARAMETROS = [
     "T2M",           # Temperatura média a 2m (°C)
     "T2M_MAX",       # Temperatura máxima a 2m (°C)
@@ -43,28 +23,6 @@ PARAMETROS = [
     "WS2M",          # Velocidade do vento a 2m (m/s)
     "WS2M_MAX",      # Velocidade máxima do vento a 2m (m/s)
 ]
-
-# DDL Oracle de referência
-DDL_ORACLE = """
-CREATE TABLE AGRO_METEO_DAILY (
-    id                  NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    regiao              VARCHAR2(100)  NOT NULL,
-    data                DATE           NOT NULL,
-    temp_media          NUMBER(5,2),    -- T2M    (°C)
-    temp_max            NUMBER(5,2),    -- T2M_MAX (°C)
-    temp_min            NUMBER(5,2),    -- T2M_MIN (°C)
-    ponto_orvalho       NUMBER(5,2),    -- T2MDEW  (°C)
-    umidade_relativa    NUMBER(5,2),    -- RH2M    (%)
-    precipitacao        NUMBER(7,2),    -- PRECTOTCORR (mm/dia)
-    vento_medio         NUMBER(6,2),    -- WS2M    (m/s)
-    vento_max           NUMBER(6,2),    -- WS2M_MAX (m/s)
-    dt_ingestao         TIMESTAMP       DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_agro_meteo_daily UNIQUE (regiao, data)
-);
-"""
-
-
-# ── Funções principais ─────────────────────────────────────────────────────────
 
 def extrair(
     regiao_key: str,
@@ -103,9 +61,6 @@ def extrair(
 def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
     """
     Transforma a resposta da NASA POWER em lista de registros para o Oracle.
-
-    Estrutura da resposta NASA POWER:
-        dados["properties"]["parameter"]["T2M"]["20240101"] = valor
 
     Tratamentos aplicados:
         - Conversão de chaves de data "YYYYMMDD" → objeto date
@@ -211,8 +166,6 @@ def extrair_todas_regioes(
         janela_dias=janela_dias,
     )
 
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _limpar_temp(valor, client: NasaPowerClient) -> Optional[float]:
     """Limpa temperatura: fill → None, fora de [-80, 60] → None."""

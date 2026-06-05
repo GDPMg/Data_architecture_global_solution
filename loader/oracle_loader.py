@@ -1,13 +1,3 @@
-"""
-loader/oracle_loader.py
------------------------
-Conecta ao Oracle XE e carrega registros nas 4 tabelas do projeto.
-
-Uso como context manager (recomendado nas DAGs):
-    with OracleLoader() as loader:
-        loader.carregar_agro_weather(registros)
-"""
-
 import logging
 import os
 from datetime import date, datetime
@@ -35,8 +25,6 @@ class OracleLoader:
         self.conn = oracledb.connect(user=user, password=password, dsn=dsn)
         logger.info(f"[OracleLoader] Conectado ao Oracle: {dsn}")
 
-    # ── Context manager ────────────────────────────────────────────────────────
-
     def __enter__(self):
         return self
 
@@ -48,8 +36,6 @@ class OracleLoader:
             logger.error(f"[OracleLoader] Rollback por exceção: {exc_val}")
         self.conn.close()
         return False
-
-    # ── Carga por tabela ───────────────────────────────────────────────────────
 
     def carregar_agro_weather(self, registros: list[dict]) -> int:
         """MERGE INTO AGRO_WEATHER por (regiao, data)."""
@@ -170,11 +156,9 @@ class OracleLoader:
         self.conn.commit()
         logger.info(f"[PIPELINE_LOG] {dag_id} → {tabela}: {qtd_registros} registros")
 
-    # ── Helpers ────────────────────────────────────────────────────────────────
 
     def _executar_merge(self, sql: str, registros: list[dict], tabela: str) -> int:
-        # dt_ingestao é gerenciado pelo CURRENT_TIMESTAMP no SQL do MERGE,
-        # por isso não pode aparecer como bind variable nos params
+        # dt_ingestao é gerenciado pelo CURRENT_TIMESTAMP no SQL do MERGE
         params = [
             {k: v for k, v in _preparar_registro(r).items() if k != "dt_ingestao"}
             for r in registros
@@ -187,8 +171,6 @@ class OracleLoader:
         logger.info(f"[{tabela}] MERGE concluído: {len(params)} registros processados.")
         return len(params)
 
-
-# ── Serialização de tipos Python → Oracle ─────────────────────────────────────
 
 def _preparar_registro(registro: dict) -> dict:
     return {chave: _converter_valor(valor) for chave, valor in registro.items()}

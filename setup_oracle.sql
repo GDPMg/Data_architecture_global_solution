@@ -1,10 +1,3 @@
--- setup_oracle.sql
--- DDL para criação das 4 tabelas do projeto Global Solution
--- Conexão: system/123@localhost:1521/XE
---
--- Execução via SQL*Plus:
---   sqlplus system/123@localhost:1521/XE @setup_oracle.sql
-
 -- ── AGRO_WEATHER ──────────────────────────────────────────────────────────────
 -- Dados agrometeorológicos diários da NASA POWER (fonte: MERRA-2)
 
@@ -117,8 +110,3 @@ CREATE TABLE PIPELINE_LOG (
     qtd_registros NUMBER         NOT NULL,
     dt_execucao   TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
 );
-
--- ── Verificação ───────────────────────────────────────────────────────────────
-SELECT table_name FROM user_tables
-WHERE table_name IN ('AGRO_WEATHER', 'SOLAR_RADIATION', 'EVAPO', 'AGRICULTURAL_FORECAST', 'PIPELINE_LOG')
-ORDER BY table_name;
