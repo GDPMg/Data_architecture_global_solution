@@ -133,32 +133,31 @@ class OracleLoader:
         """
         return self._executar_merge(sql, registros, "EVAPO")
 
-    def carregar_agriculture(self, registros: list[dict]) -> int:
-        """
-        INSERT INTO AGRICULTURE.
-        Não usa MERGE pois dt_ingestao é parte da chave UNIQUE —
-        cada execução diária gera um snapshot novo de previsão.
-        """
+    def carregar_agricultural_forecast(self, registros: list[dict]) -> int:
+        """MERGE INTO AGRICULTURAL_FORECAST por (regiao, data_previsao) — substitui previsão existente."""
         if not registros:
-            logger.info("[AGRICULTURE] Sem registros para carregar.")
+            logger.info("[AGRICULTURAL_FORECAST] Sem registros para carregar.")
             return 0
 
         sql = """
-        INSERT INTO AGRICULTURE
+        MERGE INTO AGRICULTURAL_FORECAST tgt
+        USING (SELECT :regiao AS regiao, :data_previsao AS data_previsao FROM DUAL) src
+        ON (tgt.regiao = src.regiao AND tgt.data_previsao = src.data_previsao)
+        WHEN MATCHED THEN UPDATE SET
+            tgt.et0_evapotranspiracao = :et0_evapotranspiracao,
+            tgt.precipitacao_prevista = :precipitacao_prevista,
+            tgt.temp_max_prevista     = :temp_max_prevista,
+            tgt.radiacao_solar        = :radiacao_solar,
+            tgt.prob_precipitacao     = :prob_precipitacao,
+            tgt.dt_ingestao           = CURRENT_TIMESTAMP
+        WHEN NOT MATCHED THEN INSERT
             (regiao, data_previsao, et0_evapotranspiracao, precipitacao_prevista,
-             temp_max_prevista, radiacao_solar, prob_precipitacao, dt_ingestao)
+             temp_max_prevista, radiacao_solar, prob_precipitacao)
         VALUES
-            (:regiao, :data_previsao, :et0_evapotranspiracao, :precipitacao_prevista,
-             :temp_max_prevista, :radiacao_solar, :prob_precipitacao, :dt_ingestao)
+            (src.regiao, src.data_previsao, :et0_evapotranspiracao, :precipitacao_prevista,
+             :temp_max_prevista, :radiacao_solar, :prob_precipitacao)
         """
-        params = [_preparar_registro(r) for r in registros]
-
-        with self.conn.cursor() as cur:
-            cur.executemany(sql, params)
-
-        self.conn.commit()
-        logger.info(f"[AGRICULTURE] {len(params)} registros inseridos.")
-        return len(params)
+        return self._executar_merge(sql, registros, "AGRICULTURAL_FORECAST")
 
     def registrar_execucao(self, dag_id: str, tabela: str, qtd_registros: int) -> None:
         """Grava uma linha em PIPELINE_LOG para auditoria de cada execução."""

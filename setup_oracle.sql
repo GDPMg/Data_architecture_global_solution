@@ -77,17 +77,17 @@ CREATE TABLE EVAPO (
     CONSTRAINT uq_evapo_diario UNIQUE (regiao, data)
 );
 
--- ── AGRICULTURE ───────────────────────────────────────────────────────────────
+-- ── AGRICULTURAL_FORECAST ───────────────────────────────────────────────────────────────
 -- Previsão agrícola de 16 dias do Open-Meteo (snapshot diário)
 
 BEGIN
-    EXECUTE IMMEDIATE 'DROP TABLE AGRICULTURE';
+    EXECUTE IMMEDIATE 'DROP TABLE AGRICULTURAL_FORECAST';
 EXCEPTION
     WHEN OTHERS THEN NULL;
 END;
 /
 
-CREATE TABLE AGRICULTURE (
+CREATE TABLE AGRICULTURAL_FORECAST (
     id                      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     regiao                  VARCHAR2(100)  NOT NULL,
     data_previsao           DATE           NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE AGRICULTURE (
     radiacao_solar          NUMBER(8,2),
     prob_precipitacao       NUMBER(5,2),
     dt_ingestao             TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_agriculture UNIQUE (regiao, data_previsao, dt_ingestao)
+    CONSTRAINT uq_agriculture UNIQUE (regiao, data_previsao)
 );
 
 -- ── PIPELINE_LOG ─────────────────────────────────────────────────────────────
@@ -120,5 +120,5 @@ CREATE TABLE PIPELINE_LOG (
 
 -- ── Verificação ───────────────────────────────────────────────────────────────
 SELECT table_name FROM user_tables
-WHERE table_name IN ('AGRO_WEATHER', 'SOLAR_RADIATION', 'EVAPO', 'AGRICULTURE', 'PIPELINE_LOG')
+WHERE table_name IN ('AGRO_WEATHER', 'SOLAR_RADIATION', 'EVAPO', 'AGRICULTURAL_FORECAST', 'PIPELINE_LOG')
 ORDER BY table_name;

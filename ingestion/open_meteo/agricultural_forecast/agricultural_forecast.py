@@ -1,10 +1,10 @@
 """
-tables/open_meteo/previsao_agricola.py
----------------------------------------
-Define os parâmetros exatos da tabela PREVISAO_AGRICOLA e transforma
+ingestion/open_meteo/agricultural_forecast/agricultural_forecast.py
+---------------------------------------------------------------------
+Define os parâmetros da tabela AGRICULTURAL_FORECAST e transforma
 a resposta da API em registros prontos para carga no Oracle.
 
-Tabela Oracle alvo: PREVISAO_AGRICOLA
+Tabela Oracle alvo: AGRICULTURAL_FORECAST
 """
 
 import logging
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # ── Configuração da tabela ─────────────────────────────────────────────────────
 
-NOME_TABELA = "PREVISAO_AGRICOLA"
+NOME_TABELA = "AGRICULTURAL_FORECAST"
 DIAS_PREVISAO_PADRAO = 16
 
 # Variáveis exatas que serão requisitadas na API
@@ -32,7 +32,7 @@ VARIAVEIS_DAILY = [
 
 # DDL Oracle de referência
 DDL_ORACLE = """
-CREATE TABLE PREVISAO_AGRICOLA (
+CREATE TABLE AGRICULTURAL_FORECAST (
     id                      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     regiao                  VARCHAR2(100)  NOT NULL,
     data_previsao           DATE           NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE PREVISAO_AGRICOLA (
     radiacao_solar          NUMBER(8,2),
     prob_precipitacao       NUMBER(5,2),
     dt_ingestao             TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_previsao_agricola UNIQUE (regiao, data_previsao, dt_ingestao)
+    CONSTRAINT uq_agricultural_forecast UNIQUE (regiao, data_previsao)
 );
 """
 
@@ -79,7 +79,7 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
     """
     Transforma a resposta da API em lista de registros para o Oracle.
 
-    Cada item da lista corresponde a uma linha da tabela PREVISAO_AGRICOLA.
+    Cada item corresponde a uma linha da tabela AGRICULTURAL_FORECAST.
 
     Tratamentos aplicados:
         - Remoção de registros com data nula
@@ -91,12 +91,12 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
     regiao_nome = REGIOES_AGRICOLAS[regiao_key]["nome"]
     daily = dados_api.get("daily", {})
 
-    datas         = daily.get("time", [])
-    et0           = daily.get("et0_fao_evapotranspiration", [])
-    precipitacao  = daily.get("precipitation_sum", [])
-    temp_max      = daily.get("temperature_2m_max", [])
-    radiacao      = daily.get("shortwave_radiation_sum", [])
-    prob_chuva    = daily.get("precipitation_probability_max", [])
+    datas        = daily.get("time", [])
+    et0          = daily.get("et0_fao_evapotranspiration", [])
+    precipitacao = daily.get("precipitation_sum", [])
+    temp_max     = daily.get("temperature_2m_max", [])
+    radiacao     = daily.get("shortwave_radiation_sum", [])
+    prob_chuva   = daily.get("precipitation_probability_max", [])
 
     registros = []
     dt_ingestao = datetime.now()
@@ -108,7 +108,6 @@ def transformar(dados_api: dict, regiao_key: str) -> list[dict]:
             continue
 
         prob = arredondar(prob_chuva[i] if i < len(prob_chuva) else None)
-        # Garante que probabilidade não ultrapasse 100%
         if prob is not None and prob > 100:
             prob = 100.0
 

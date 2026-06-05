@@ -1,7 +1,7 @@
 """
-dags/upload/open_meteo/dag_agriculture.py
-------------------------------------------
-Pipeline: Open-Meteo → staging JSON → AGRICULTURE (Oracle)
+dags/upload/open_meteo/dag_agricultural_forecast.py
+-----------------------------------------------------
+Pipeline: Open-Meteo → staging JSON → AGRICULTURAL_FORECAST (Oracle)
 Acionado pelo trigger_master. Lógica das tasks em utils/dag_factory.py.
 """
 
@@ -15,23 +15,23 @@ from airflow.operators.python import PythonOperator
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from ingestion.open_meteo.agriculture.agriculture import extrair_todas_regioes
+from ingestion.open_meteo.agricultural_forecast.agricultural_forecast import extrair_todas_regioes
 from utils.dag_factory import criar_tasks
 
 extrair_fn, carregar_fn, limpar_fn = criar_tasks(
     extrair_fn=extrair_todas_regioes,
-    staging_dir=PROJECT_ROOT / "data" / "open_meteo" / "agriculture",
-    tabela="AGRICULTURE",
-    loader_method="carregar_agriculture",
+    staging_dir=PROJECT_ROOT / "data" / "open_meteo" / "agricultural_forecast",
+    tabela="AGRICULTURAL_FORECAST",
+    loader_method="carregar_agricultural_forecast",
 )
 
 with DAG(
-    dag_id="open_meteo_agriculture",
+    dag_id="open_meteo_agricultural_forecast",
     description="Extrai previsão agrícola do Open-Meteo e carrega no Oracle",
     schedule_interval=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=["open_meteo", "agriculture", "oracle"],
+    tags=["open_meteo", "agricultural_forecast", "oracle"],
 ) as dag:
 
     extrair_transformar_task = PythonOperator(

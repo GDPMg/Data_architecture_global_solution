@@ -3,7 +3,7 @@ utils/dag_factory.py
 ---------------------
 Fábrica de tasks para as DAGs de ingestão.
 
-Os 4 pipelines (agro_weather, solar_radiation, evapo, agriculture) têm
+Os 4 pipelines (agro_weather, solar_radiation, evapo, agricultural_forecast) têm
 exatamente o mesmo fluxo — só mudam: módulo de extração, diretório de
 staging, nome da tabela e método do OracleLoader. Esta fábrica centraliza
 a lógica e elimina a duplicação.

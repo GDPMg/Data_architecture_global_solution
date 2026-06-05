@@ -7,8 +7,8 @@ a resposta da API em registros prontos para carga no Oracle.
 Tabela Oracle alvo: EVAPO
 
 Dados coletados são exclusivos desta fonte — variáveis não disponíveis
-em AGRO_WEATHER (NASA) nem em AGRICULTURE (previsão):
-  - ET0 histórico (AGRICULTURE só tem previsão)
+em AGRO_WEATHER (NASA) nem em AGRICULTURAL_FORECAST (previsão):
+  - ET0 histórico (AGRICULTURAL_FORECAST só tem previsão)
   - Déficit de pressão de vapor (estresse hídrico das plantas)
   - Duração efetiva de sol (horas)
   - Rajadas máximas de vento (distinto de velocidade máxima)
