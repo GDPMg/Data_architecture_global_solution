@@ -18,19 +18,19 @@
 
 ## 1. Descrição da Solução
 
-O **Global Solution** é um pipeline de ingestão e análise de dados agroclimáticos desenvolvido para monitorar condições meteorológicas em 5 regiões agrícolas estratégicas do Brasil. A solução integra duas APIs públicas de dados climáticos — **Open-Meteo** e **NASA POWER** — orquestrando a coleta, transformação e carga diária de informações em um banco de dados **Oracle**, com toda a execução gerenciada pelo **Apache Airflow** em ambiente **Docker**.
+O **Projeto** é um pipeline de ingestão e análise de dados agroclimáticos desenvolvido para monitorar condições meteorológicas em 5 regiões agrícolas estratégicas do Brasil. A solução integra duas APIs públicas de dados climáticos — **Open-Meteo** e **NASA POWER** — orquestrando a coleta, transformação e carga diária de informações em um banco de dados **Oracle**, com toda a execução gerenciada pelo **Apache Airflow** em ambiente **Docker**.
 
 A proposta resolve um problema real do agronegócio: a necessidade de centralizar dados de fontes heterogêneas (satélite, modelos atmosféricos e previsão numérica) em um único repositório estruturado, pronto para análise e tomada de decisão sobre irrigação, plantio e gestão de riscos climáticos.
 
 **Regiões monitoradas:**
 
-| Região | Estado | Culturas Representativas |
-|---|---|---|
-| Sorriso | Mato Grosso | Soja, milho, algodão |
-| Ribeirão Preto | São Paulo | Cana-de-açúcar |
-| Rio Verde | Goiás | Soja, milho |
-| Cascavel | Paraná | Milho, soja, trigo |
-| Barreiras | Bahia | Algodão, soja |
+| Região | Estado |
+|---|---|
+| Sorriso | Mato Grosso |
+| Ribeirão Preto | São Paulo |
+| Rio Verde | Goiás |
+| Cascavel | Paraná |
+| Barreiras | Bahia |
 
 ---
 
@@ -257,6 +257,8 @@ Os pipelines das 3 tabelas históricas (AGRO_WEATHER, SOLAR_RADIATION, EVAPO) ac
 | `incremental` *(padrão)* | Carrega apenas o dia anterior (d-1) | Execução diária automática |
 | `full` | Carrega os últimos 120 dias | Carga inicial ou reprocessamento |
 
+`FULL`: foi definido como um cenário hipotético em que seriam considerados 120 dias. Se fosse necessário pegar todo o histórico real, o processamento seria muito grande.
+
 Para selecionar o modo **full**, acesse a DAG no Airflow UI → **Trigger DAG w/ config** → altere o parâmetro `modo` para `full`.
 
 ---
@@ -443,7 +445,6 @@ O projeto demonstra a viabilidade de construir um pipeline de dados agroclimáti
 
 - A NASA POWER tem latência de ~7 dias, o que cria uma defasagem entre os dados das duas fontes em consultas com JOIN por data.
 - O `LocalExecutor` do Airflow processa as DAGs de forma sequencial; para escalar para dezenas de regiões, seria necessário migrar para `CeleryExecutor`.
-- Não há mecanismo de retry configurado — falhas de rede descartam a execução do dia.
 
 ---
 
@@ -455,7 +456,7 @@ O projeto demonstra a viabilidade de construir um pipeline de dados agroclimáti
 |---|---|
 | Docker Desktop | Mais recente |
 | Oracle Database XE | 21c ou 18c |
-| SQL*Plus ou DBeaver | Para executar `setup_oracle.sql` |
+| SQL Developer | Para executar `setup_oracle.sql` |
 
 > **Importante:** O Oracle XE deve estar instalado e rodando no Windows (fora do Docker). O Airflow, rodando em container, acessa o banco via `host.docker.internal:1521/XE`.
 
@@ -536,13 +537,7 @@ A partir daí, todos os dias às 06:00 (horário de São Paulo) o pipeline execu
 
 ### Passo 6 — Executar as consultas analíticas
 
-Conecte ao Oracle e execute o arquivo de queries:
-
-```bash
-sqlplus system/123@localhost:1521/XE @queries/analytical_queries.sql
-```
-
-Ou abra o arquivo `queries/analytical_queries.sql` no DBeaver/SQL Developer e execute cada query individualmente.
+Conecte ao Oracle e execute o arquivo de queries: `analytical_queries.sql` no SQL Developer e execute cada query individualmente.
 
 ---
 
@@ -551,8 +546,6 @@ Ou abra o arquivo `queries/analytical_queries.sql` no DBeaver/SQL Developer e ex
 ```bash
 docker compose down
 ```
-
-Os dados do PostgreSQL (metadados do Airflow) são preservados no volume `postgres-db`. Os dados do Oracle permanecem no banco local do Windows.
 
 ---
 
