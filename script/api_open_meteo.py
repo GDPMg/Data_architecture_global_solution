@@ -1,9 +1,13 @@
+import time
 import requests
 import logging
 from datetime import datetime, date
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+MAX_TENTATIVAS = 3
+BACKOFF_SEGUNDOS = 2
 
 BASE_URL_FORECAST = "https://api.open-meteo.com/v1"
 BASE_URL_ARCHIVE = "https://archive-api.open-meteo.com/v1"
@@ -104,7 +108,7 @@ class OpenMeteoClient:
         params: dict,
         regiao_nome: str,
     ) -> dict:
-        """Executa a requisição HTTP, trata erros e retorna o JSON."""
+        """Executa a requisição HTTP com retry e backoff exponencial."""
         url = base_url + endpoint
 
         logger.info(
@@ -112,32 +116,40 @@ class OpenMeteoClient:
             f"params: { {k: v for k, v in params.items() if k not in ('latitude', 'longitude')} }"
         )
 
-        try:
-            response = self.session.get(url, params=params, timeout=self.timeout)
-            response.raise_for_status()
-        except requests.exceptions.Timeout:
-            raise TimeoutError(
-                f"[OpenMeteo] Timeout após {self.timeout}s para {url}"
-            )
-        except requests.exceptions.ConnectionError as e:
-            raise ConnectionError(f"[OpenMeteo] Falha de conexão: {e}")
-        except requests.exceptions.HTTPError as e:
-            raise RuntimeError(
-                f"[OpenMeteo] Erro HTTP {response.status_code}: {response.text}"
-            )
+        ultimo_erro = None
+        for tentativa in range(1, MAX_TENTATIVAS + 1):
+            try:
+                response = self.session.get(url, params=params, timeout=self.timeout)
+                response.raise_for_status()
+            except requests.exceptions.Timeout as e:
+                ultimo_erro = TimeoutError(f"[OpenMeteo] Timeout após {self.timeout}s para {url}")
+            except requests.exceptions.ConnectionError as e:
+                ultimo_erro = ConnectionError(f"[OpenMeteo] Falha de conexão: {e}")
+            except requests.exceptions.HTTPError:
+                status = response.status_code
+                if status < 500 and status != 429:
+                    raise RuntimeError(f"[OpenMeteo] Erro HTTP {status}: {response.text}")
+                ultimo_erro = RuntimeError(f"[OpenMeteo] Erro HTTP {status}: {response.text}")
+            else:
+                dados = response.json()
+                if dados.get("error"):
+                    raise ValueError(
+                        f"[OpenMeteo] API retornou erro: {dados.get('reason', 'desconhecido')}"
+                    )
+                logger.info(
+                    f"[OpenMeteo] Sucesso → {len(dados.get('daily', {}).get('time', []))} registros diários"
+                )
+                return dados
 
-        dados = response.json()
+            if tentativa < MAX_TENTATIVAS:
+                espera = BACKOFF_SEGUNDOS ** tentativa
+                logger.warning(
+                    f"[OpenMeteo] Tentativa {tentativa}/{MAX_TENTATIVAS} falhou. "
+                    f"Aguardando {espera}s... Erro: {ultimo_erro}"
+                )
+                time.sleep(espera)
 
-        # A API retorna 'error: true' com HTTP 200 em alguns casos
-        if dados.get("error"):
-            raise ValueError(
-                f"[OpenMeteo] API retornou erro: {dados.get('reason', 'desconhecido')}"
-            )
-
-        logger.info(
-            f"[OpenMeteo] Sucesso → {len(dados.get('daily', {}).get('time', []))} registros diários"
-        )
-        return dados
+        raise ultimo_erro
 
     def _obter_regiao(self, regiao_key: str) -> dict:
         """Valida e retorna os dados da região."""

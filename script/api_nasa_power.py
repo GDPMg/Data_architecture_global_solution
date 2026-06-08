@@ -1,9 +1,13 @@
+import time
 import requests
 import logging
 from datetime import datetime, date, timedelta
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+MAX_TENTATIVAS = 3
+BACKOFF_SEGUNDOS = 2
 
 
 BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
@@ -85,44 +89,50 @@ class NasaPowerClient:
 
 
     def _fazer_requisicao(self, params: dict, regiao_nome: str) -> dict:
-        """Executa a requisição HTTP, trata erros e retorna o JSON."""
+        """Executa a requisição HTTP com retry e backoff exponencial."""
         logger.info(
             f"[NasaPower] Requisição → região: {regiao_nome} | "
             f"parâmetros: {params.get('parameters')} | "
             f"{params.get('start')} → {params.get('end')}"
         )
 
-        try:
-            response = self.session.get(
-                BASE_URL, params=params, timeout=self.timeout
-            )
-            response.raise_for_status()
-        except requests.exceptions.Timeout:
-            raise TimeoutError(
-                f"[NasaPower] Timeout após {self.timeout}s. "
-                "A API da NASA pode estar lenta — tente novamente."
-            )
-        except requests.exceptions.ConnectionError as e:
-            raise ConnectionError(f"[NasaPower] Falha de conexão: {e}")
-        except requests.exceptions.HTTPError as e:
-            raise RuntimeError(
-                f"[NasaPower] Erro HTTP {response.status_code}: {response.text}"
-            )
+        ultimo_erro = None
+        for tentativa in range(1, MAX_TENTATIVAS + 1):
+            try:
+                response = self.session.get(BASE_URL, params=params, timeout=self.timeout)
+                response.raise_for_status()
+            except requests.exceptions.Timeout as e:
+                ultimo_erro = TimeoutError(
+                    f"[NasaPower] Timeout após {self.timeout}s. A API da NASA pode estar lenta."
+                )
+            except requests.exceptions.ConnectionError as e:
+                ultimo_erro = ConnectionError(f"[NasaPower] Falha de conexão: {e}")
+            except requests.exceptions.HTTPError:
+                status = response.status_code
+                if status < 500 and status != 429:
+                    raise RuntimeError(f"[NasaPower] Erro HTTP {status}: {response.text}")
+                ultimo_erro = RuntimeError(f"[NasaPower] Erro HTTP {status}: {response.text}")
+            else:
+                dados = response.json()
+                if "messages" in dados:
+                    for msg in dados["messages"]:
+                        if "error" in msg.lower() or "invalid" in msg.lower():
+                            raise ValueError(f"[NasaPower] Erro da API: {msg}")
+                n_registros = len(
+                    next(iter(dados.get("properties", {}).get("parameter", {}).values()), {})
+                )
+                logger.info(f"[NasaPower] Sucesso → {n_registros} registros diários")
+                return dados
 
-        dados = response.json()
+            if tentativa < MAX_TENTATIVAS:
+                espera = BACKOFF_SEGUNDOS ** tentativa
+                logger.warning(
+                    f"[NasaPower] Tentativa {tentativa}/{MAX_TENTATIVAS} falhou. "
+                    f"Aguardando {espera}s... Erro: {ultimo_erro}"
+                )
+                time.sleep(espera)
 
-        if "messages" in dados:
-            for msg in dados["messages"]:
-                if "error" in msg.lower() or "invalid" in msg.lower():
-                    raise ValueError(f"[NasaPower] Erro da API: {msg}")
-
-        n_registros = len(
-            next(iter(dados.get("properties", {})
-                          .get("parameter", {})
-                          .values()), {})
-        )
-        logger.info(f"[NasaPower] Sucesso → {n_registros} registros diários")
-        return dados
+        raise ultimo_erro
 
     def _obter_regiao(self, regiao_key: str) -> dict:
         """Valida e retorna os dados da região."""
